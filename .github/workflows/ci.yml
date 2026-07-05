@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Set up Python 3.13
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13"
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          enable-cache: true
+      - name: Install locked environment
+        # uv.lock is the only dependency input for CI.
+        run: uv sync --locked --dev
+      - name: Build outside the repository and prove cleanup
+        run: |
+          set -euo pipefail
+          build_dir=$(mktemp -d "${RUNNER_TEMP:?}/kw-notice-mcp-build.XXXXXX")
+          cleanup() {
+            rm -rf -- "$build_dir"
+          }
+          trap cleanup EXIT
+          uv build --out-dir "$build_dir"
+          test "$(find "$build_dir" -maxdepth 1 -type f -name '*.whl' | wc -l)" -eq 1
+          test "$(find "$build_dir" -maxdepth 1 -type f -name '*.tar.gz' | wc -l)" -eq 1
+          cleanup
+          test ! -e "$build_dir"
+          trap - EXIT
+          test ! -e dist
+          test ! -e build
+      - name: No-excuse checker
+        run: uv run python scripts/check_no_excuse_rules.py src tests
+      - name: Ruff check
+        run: uv run ruff check
+      - name: Ruff format check
+        run: uv run ruff format --check
+      - name: Basedpyright
+        run: uv run basedpyright
+      - name: Unit and integration tests
+        run: uv run pytest -q
+      - name: STDIO E2E suite
+        run: uv run pytest tests/integration/test_mcp.py -q -k all_four_tools_over_stdio
