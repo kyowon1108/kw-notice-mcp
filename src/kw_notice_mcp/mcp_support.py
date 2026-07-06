@@ -117,6 +117,7 @@ def bounded_body(notice: StoredNotice) -> str | None:
 def pagination(
     item_count: int, limit: int, offset: int, total: int
 ) -> tuple[int | None, bool]:
-    """Calculate the fixed next-offset contract from an exact count."""
-    has_more = offset + item_count < total
-    return (offset + limit if has_more else None), has_more
+    """Return only next offsets that remain valid MCP inputs."""
+    next_offset = offset + limit
+    has_more = offset + item_count < total and next_offset <= MAX_OFFSET
+    return (next_offset if has_more else None), has_more
