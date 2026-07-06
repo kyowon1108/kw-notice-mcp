@@ -23,7 +23,7 @@ def _detail(  # noqa: PLR0913
     title: str = "Notice",
     body: str = "Redacted body",
 ) -> NoticeDetail:
-    actual_posted_date = posted_date or date(2026, 8, 1)
+    actual_posted_date = posted_date or date(2026, 7, 1)
     return NoticeDetail(
         summary=NoticeSummary(
             duid=DUID(duid),
@@ -46,22 +46,22 @@ def _detail(  # noqa: PLR0913
 def _database(tmp_path: Path) -> Path:
     database = tmp_path / "notices.sqlite3"
     with open_storage(database) as store:
-        _ = store.save_detail(_detail("1001", posted_date=date(2026, 8, 1)))
+        _ = store.save_detail(_detail("1001", posted_date=date(2026, 7, 1)))
         _ = store.save_detail(
             _detail(
                 "1002",
                 category_id="academic",
                 category_name="학사",
-                posted_date=date(2026, 8, 2),
+                posted_date=date(2026, 7, 2),
                 title="Academic notice",
             )
         )
         _ = store.save_detail(
-            _detail("1003", posted_date=date(2026, 8, 3), title="Newest notice")
+            _detail("1003", posted_date=date(2026, 7, 3), title="Newest notice")
         )
-        _ = store.start_crawl("success-1", started_at=datetime(2026, 8, 3, tzinfo=UTC))
+        _ = store.start_crawl("success-1", started_at=datetime(2026, 7, 3, tzinfo=UTC))
         _ = store.finish_crawl(
-            "success-1", status="success", finished_at=datetime(2026, 8, 3, tzinfo=UTC)
+            "success-1", status="success", finished_at=datetime(2026, 7, 3, tzinfo=UTC)
         )
     return database
 
@@ -73,8 +73,8 @@ def test_search_uses_inclusive_posted_date_and_bounded_summary_shape(
     service = NoticeToolService(_database(tmp_path))
 
     result = service.search_notices(
-        published_from="2026-08-01",
-        published_to="2026-08-02",
+        published_from="2026-07-01",
+        published_to="2026-07-02",
         limit=10,
     )
 
@@ -163,7 +163,7 @@ def test_invalid_category_returns_structured_error(
 def test_invalid_date_returns_structured_error(tmp_path: Path) -> None:
     """Given a non-ISO date, search returns invalid_input."""
     result = NoticeToolService(_database(tmp_path)).search_notices(
-        published_from="2026-8-1"
+        published_from="2026-7-1"
     )
 
     _assert_invalid(result.error.code if result.error else None)
@@ -230,9 +230,9 @@ def test_blocked_latest_crawl_returns_cache_and_retryable_envelope(
     """Given a blocked latest crawl, cached items remain readable with blocked error."""
     database = _database(tmp_path)
     with open_storage(database) as store:
-        _ = store.start_crawl("blocked-1", started_at=datetime(2026, 8, 4, tzinfo=UTC))
+        _ = store.start_crawl("blocked-1", started_at=datetime(2026, 7, 4, tzinfo=UTC))
         _ = store.finish_crawl(
-            "blocked-1", status="blocked", finished_at=datetime(2026, 8, 4, tzinfo=UTC)
+            "blocked-1", status="blocked", finished_at=datetime(2026, 7, 4, tzinfo=UTC)
         )
 
     result = NoticeToolService(database).list_latest_notices(limit=1)
@@ -250,9 +250,9 @@ def test_blocked_latest_without_cache_is_empty_and_does_not_crawl(
     """Given only a blocked crawl row, read tools return empty cached results."""
     database = tmp_path / "empty.sqlite3"
     with open_storage(database) as store:
-        _ = store.start_crawl("blocked-1", started_at=datetime(2026, 8, 4, tzinfo=UTC))
+        _ = store.start_crawl("blocked-1", started_at=datetime(2026, 7, 4, tzinfo=UTC))
         _ = store.finish_crawl(
-            "blocked-1", status="blocked", finished_at=datetime(2026, 8, 4, tzinfo=UTC)
+            "blocked-1", status="blocked", finished_at=datetime(2026, 7, 4, tzinfo=UTC)
         )
 
     result = NoticeToolService(database).search_notices()

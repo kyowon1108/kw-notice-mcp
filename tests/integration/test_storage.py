@@ -24,8 +24,8 @@ def _detail(duid: str, title: str = "Integration notice") -> NoticeDetail:
             title=title,
             category_id=CategoryId("general"),
             category_name=CategoryName("일반"),
-            posted_date=date(2026, 8, 1),
-            updated_date=date(2026, 8, 1),
+            posted_date=date(2026, 7, 1),
+            updated_date=date(2026, 7, 1),
             department="Department",
             source_url=SourceURL(
                 f"https://www.kw.ac.kr/ko/life/notice.jsp?BoardMode=view&DUID={duid}"

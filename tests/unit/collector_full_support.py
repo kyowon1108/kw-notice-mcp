@@ -17,15 +17,15 @@ def two_notice_list() -> bytes:
       <section class="board-list-box">
         <a class="title" href="/ko/life/notice.jsp?DUID=1001">Changed one</a>
         <span class="category">학사</span>
-        <span class="posted-date">2026.08.01</span>
-        <span class="updated-date">2026.08.03</span>
+        <span class="posted-date">2026.07.01</span>
+        <span class="updated-date">2026.07.03</span>
         <span class="department">Academic Office</span>
       </section>
       <section class="board-list-box">
         <a class="title" href="/ko/life/notice.jsp?DUID=1002">Changed two</a>
         <span class="category">등록/장학</span>
-        <span class="posted-date">2026.07.31</span>
-        <span class="updated-date">2026.08.03</span>
+        <span class="posted-date">2026.06.30</span>
+        <span class="updated-date">2026.07.03</span>
         <span class="department">Student Support</span>
       </section>
     </main>

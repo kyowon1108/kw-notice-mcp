@@ -65,8 +65,8 @@ def test_valid_robots_orders_index_then_changed_detail_and_delays_each_request(
     <section class="board-list-box">
       <a class="title" href="/ko/life/notice.jsp?DUID=1001">Detail sample notice</a>
       <span class="category">학사</span>
-      <span class="posted-date">2026.08.01</span>
-      <span class="updated-date">2026.08.02</span>
+      <span class="posted-date">2026.07.01</span>
+      <span class="updated-date">2026.07.02</span>
       <span class="department">Academic Office</span>
     </section>
     """.encode()
@@ -248,8 +248,8 @@ def test_time_budget_is_checked_before_detail_request(tmp_path: Path) -> None:
     list_html = """
     <section class="board-list-box">
       <a class="title" href="/ko/life/notice.jsp?DUID=1001">Detail sample notice</a>
-      <span class="category">학사</span><span class="posted-date">2026.08.01</span>
-      <span class="updated-date">2026.08.02</span>
+      <span class="category">학사</span><span class="posted-date">2026.07.01</span>
+      <span class="updated-date">2026.07.02</span>
       <span class="department">Academic Office</span>
     </section>
     """.encode()

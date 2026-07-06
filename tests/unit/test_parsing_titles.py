@@ -61,7 +61,7 @@ def test_list_title_ignores_comments_between_category_and_text() -> None:
             <!-- 첨부-->
           </a>
           <p class="info">
-            조회수 1 | 작성일 2026.08.01 | 수정일 2026.08.01 | 합성부서
+            조회수 1 | 작성일 2026.07.01 | 수정일 2026.07.01 | 합성부서
           </p>
         </li>
       </ul>
@@ -85,7 +85,7 @@ def test_detail_title_ignores_comment_nodes() -> None:
         <!-- 첨부-->
       </h1>
       <span class="category">일반</span>
-      <span class="posted-date">2026.08.04</span>
+      <span class="posted-date">2026.07.04</span>
     </article>
     """
 

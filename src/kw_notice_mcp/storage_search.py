@@ -73,7 +73,7 @@ WHERE n.tombstone_at IS NULL AND (? IS NULL OR n.category_id = ?)
 """
 
 
-def search_notices(  # noqa: PLR0913, PLR0917
+def search_notices(  # noqa: PLR0913
     connection: sqlite3.Connection,
     query: str,
     category_id: str | None,

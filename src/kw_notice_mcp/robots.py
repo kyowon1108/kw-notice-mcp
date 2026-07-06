@@ -77,7 +77,7 @@ def _missing() -> RobotsResult:
     )
 
 
-def _directive(  # noqa: PLR0911, PLR0913, PLR0917
+def _directive(  # noqa: PLR0911, PLR0913
     key: str,
     value: str,
     active: bool,

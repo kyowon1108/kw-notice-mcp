@@ -1,8 +1,8 @@
-"""Official MCP v2 STDIO server for the storage-only KW notice tools."""
+"""Official MCP STDIO server for the storage-only KW notice tools."""
 
 from pathlib import Path
 
-from mcp.server import MCPServer
+from mcp.server import FastMCP
 
 from kw_notice_mcp.mcp_tools import NoticeToolService
 from kw_notice_mcp.responses import (
@@ -13,13 +13,13 @@ from kw_notice_mcp.responses import (
 )
 
 
-def create_server(database: Path | str) -> MCPServer:
-    """Create an MCPServer with exactly the four storage-only tools."""
+def create_server(database: Path | str) -> FastMCP:
+    """Create a FastMCP server with exactly the four storage-only tools."""
     service = NoticeToolService(database)
-    mcp = MCPServer("kw-notice-mcp", version="0.1.0")
+    mcp = FastMCP("kw-notice-mcp")
 
     @mcp.tool()
-    def search_notices(  # noqa: PLR0913, PLR0917
+    def search_notices(  # noqa: PLR0913
         query: str = "",
         category: str | None = None,
         published_from: str | None = None,

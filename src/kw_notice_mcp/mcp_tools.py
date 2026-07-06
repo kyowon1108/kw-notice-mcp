@@ -41,7 +41,7 @@ class NoticeToolService:
         """Store the database path without opening it or starting a crawl."""
         self.database: Path = Path(database)
 
-    def search_notices(  # noqa: PLR0913, PLR0917
+    def search_notices(  # noqa: PLR0913
         self,
         query: str = "",
         category: str | None = None,

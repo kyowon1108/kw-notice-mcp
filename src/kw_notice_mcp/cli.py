@@ -199,7 +199,7 @@ def status(
 
 
 @app.command()
-def crawl(  # noqa: PLR0913, PLR0917
+def crawl(  # noqa: PLR0913
     db_path: Path | None = None,
     log_level: str | None = None,
     user_agent: str | None = None,

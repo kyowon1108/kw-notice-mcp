@@ -5,8 +5,8 @@ description = "A local, read-only Kwangwoon University notice MCP."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "mcp[cli]>=2.0,<3",
-    "httpx2[http2,brotli,zstd]>=2.7,<3",
+    "mcp[cli]>=1.27,<2",
+    "httpx2[http2,brotli,zstd]>=2.5,<3",
     "anyio>=4,<5",
     "beautifulsoup4>=4.13,<5",
     "pydantic>=2.11,<3",
@@ -32,6 +32,8 @@ build-backend = "uv_build"
 
 [tool.uv]
 package = true
+exclude-newer = "2026-07-06T09:13:24Z"
+prerelease = "disallow"
 
 [tool.basedpyright]
 typeCheckingMode = "all"

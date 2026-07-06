@@ -11,7 +11,7 @@ from kw_notice_mcp.storage_support import as_utc, timestamp, utc_now
 from kw_notice_mcp.values import DUID
 
 
-def apply_detail_batch(  # noqa: PLR0913, PLR0917
+def apply_detail_batch(  # noqa: PLR0913
     connection: sqlite3.Connection,
     read_only: bool,
     notices: Sequence[NoticeDetail],

@@ -64,7 +64,7 @@ def test_common_korean_landline_and_service_forms_are_redacted(phone: str) -> No
 
 def test_dates_and_ordinary_numbers_are_not_redacted_as_phones() -> None:
     """Given date and ordinary-number text, phone redaction leaves it unchanged."""
-    value = "2026-08-04, 20260804, 1234-5678, 100 000원"
+    value = "2026-07-04, 20260704, 1234-5678, 100 000원"
 
     assert redact_text(value) == value
 
@@ -108,7 +108,7 @@ def test_unlabelled_account_like_run_is_redacted_in_memory() -> None:
 
 def test_dates_amounts_and_notice_numbers_are_preserved() -> None:
     """Given ordinary date, amount, and notice-number text, redaction preserves it."""
-    value = "2026.08.04, 100,000원, 공지번호 2026-1234"
+    value = "2026.07.04, 100,000원, 공지번호 2026-1234"
 
     redacted = redact_text(value)
 
@@ -150,8 +150,8 @@ def test_persisted_human_fields_never_store_complete_sentinels(tmp_path: Path) -
             title=title,
             category_id=CategoryId("general"),
             category_name=CategoryName("일반"),
-            posted_date=date(2026, 8, 1),
-            updated_date=date(2026, 8, 1),
+            posted_date=date(2026, 7, 1),
+            updated_date=date(2026, 7, 1),
             department=department,
             source_url=SourceURL(
                 "https://www.kw.ac.kr/ko/life/notice.jsp?BoardMode=view&DUID=1001"

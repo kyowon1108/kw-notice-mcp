@@ -36,7 +36,7 @@ class FakeClock:
     current: datetime
 
     def __init__(self) -> None:
-        self.current = datetime(2026, 8, 5, tzinfo=UTC)
+        self.current = datetime(2026, 7, 5, tzinfo=UTC)
 
     def now(self) -> datetime:
         return self.current

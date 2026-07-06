@@ -47,7 +47,7 @@ class EmptyWire:
 def test_concurrent_run_is_busy_before_any_second_http_sequence(tmp_path: Path) -> None:
     """Given an active lease, a second collector returns busy without wire calls."""
     database = tmp_path / "db.sqlite3"
-    now = datetime(2026, 8, 5, tzinfo=UTC)
+    now = datetime(2026, 7, 5, tzinfo=UTC)
     with open_storage(database) as store:
         _ = store.start_crawl("already-running", started_at=now)
         wire = EmptyWire()
@@ -69,7 +69,7 @@ def test_concurrent_run_is_busy_before_any_second_http_sequence(tmp_path: Path) 
 def test_stale_run_is_interrupted_and_checkpoint_is_available(tmp_path: Path) -> None:
     """Given a run older than fifteen minutes, lease acquisition recovers it."""
     database = tmp_path / "db.sqlite3"
-    now = datetime(2026, 8, 5, tzinfo=UTC)
+    now = datetime(2026, 7, 5, tzinfo=UTC)
     with open_storage(database) as store:
         _ = store.start_crawl("old", started_at=now - timedelta(minutes=16))
         _ = store.update_crawl(
@@ -96,8 +96,8 @@ def test_valid_robots_commits_new_detail_then_skips_unchanged_detail(
     <section class="board-list-box">
       <a class="title" href="/ko/life/notice.jsp?DUID=1001">Detail sample notice</a>
       <span class="category">학사</span>
-      <span class="posted-date">2026.08.01</span>
-      <span class="updated-date">2026.08.02</span>
+      <span class="posted-date">2026.07.01</span>
+      <span class="updated-date">2026.07.02</span>
       <span class="department">Academic Office</span>
     </section>
     """.encode()
@@ -139,7 +139,7 @@ def test_valid_robots_commits_new_detail_then_skips_unchanged_detail(
 def test_repeated_stale_interruptions_recover_without_overlap(tmp_path: Path) -> None:
     """Given repeated stale leases, each is interrupted before a new HTTP sequence."""
     database = tmp_path / "db.sqlite3"
-    now = datetime(2026, 8, 5, tzinfo=UTC)
+    now = datetime(2026, 7, 5, tzinfo=UTC)
     with open_storage(database) as store:
         for number in (1, 2):
             stale_id = f"stale-{number}"
@@ -164,8 +164,8 @@ def test_failed_detail_does_not_checkpoint_incomplete_page(tmp_path: Path) -> No
     list_html = """
     <section class="board-list-box">
       <a class="title" href="/ko/life/notice.jsp?DUID=1001">Detail sample notice</a>
-      <span class="category">학사</span><span class="posted-date">2026.08.01</span>
-      <span class="updated-date">2026.08.02</span>
+      <span class="category">학사</span><span class="posted-date">2026.07.01</span>
+      <span class="updated-date">2026.07.02</span>
       <span class="department">Academic Office</span>
     </section>
     """.encode()

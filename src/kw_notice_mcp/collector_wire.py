@@ -69,7 +69,7 @@ def _status_reason(status_code: int) -> str:
     return "http_failure"
 
 
-async def request_with_policy(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0917
+async def request_with_policy(  # noqa: C901, PLR0911, PLR0912, PLR0913
     transport: WireTransport,
     budget: WireBudget,
     sleeper: Sleeper,

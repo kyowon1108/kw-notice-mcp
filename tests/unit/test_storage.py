@@ -25,7 +25,7 @@ from kw_notice_mcp.values import DUID, SourceURL
 def _summary(
     duid: str, *, updated: date | None = None, title: str = "Notice"
 ) -> NoticeSummary:
-    actual_updated = updated or date(2026, 8, 1)
+    actual_updated = updated or date(2026, 7, 2)
     return NoticeSummary(
         duid=DUID(duid),
         title=title,
@@ -144,7 +144,7 @@ def test_search_filters_and_stable_tie_break_are_bounded(tmp_path: Path) -> None
         results = store.search("target", limit=50)
         assert tuple(item.duid for item in results) == (DUID("3"), DUID("2"))
         assert len(store.search(limit=500)) == 50
-        assert store.search(category_id="general", updated_from=date(2026, 8, 1))
+        assert store.search(category_id="general", updated_from=date(2026, 7, 2))
         assert not store.search(category_id="academic")
 
         assert store.search('"unterminated', limit=1) == ()
@@ -154,7 +154,7 @@ def test_search_filters_and_stable_tie_break_are_bounded(tmp_path: Path) -> None
 
 def test_ttl_cleanup_removes_body_and_fts_tokens(tmp_path: Path) -> None:
     """Given an expired body, cleanup nulls it and removes its searchable tokens."""
-    collected = datetime(2026, 8, 1, tzinfo=UTC)
+    collected = datetime(2026, 7, 1, tzinfo=UTC)
     with open_storage(tmp_path / "notices.sqlite3") as store:
         _ = store.save_detail(
             _detail("1001", body="ephemeral_token"), collected_at=collected
@@ -196,7 +196,7 @@ def test_freshness_boundaries(
     tmp_path: Path, age: timedelta, expected: Freshness
 ) -> None:
     """Given a successful run, freshness uses inclusive 24-hour and 7-day bounds."""
-    now = datetime(2026, 8, 10, tzinfo=UTC)
+    now = datetime(2026, 7, 5, tzinfo=UTC)
     with open_storage(tmp_path / "notices.sqlite3") as store:
         _ = store.save_detail(_detail("1001"), collected_at=now - age)
         _ = store.start_crawl("run-1", started_at=now - timedelta(minutes=1))
@@ -206,7 +206,7 @@ def test_freshness_boundaries(
 
 def test_no_successful_run_is_expired(tmp_path: Path) -> None:
     """Given only interrupted crawl state, a notice is expired regardless of age."""
-    now = datetime(2026, 8, 10, tzinfo=UTC)
+    now = datetime(2026, 7, 5, tzinfo=UTC)
     with open_storage(tmp_path / "notices.sqlite3") as store:
         _ = store.save_detail(_detail("1001"), collected_at=now)
         _ = store.start_crawl("run-1", started_at=now)
@@ -218,11 +218,15 @@ def test_restart_recovery_marks_stale_run_and_returns_checkpoint(
     tmp_path: Path,
 ) -> None:
     """Given an old running row, recovery interrupts it and exposes its checkpoint."""
-    now = datetime(2026, 8, 10, tzinfo=UTC)
+    now = datetime(2026, 7, 5, tzinfo=UTC)
     with open_storage(tmp_path / "notices.sqlite3") as store:
         _ = store.start_crawl("run-1", started_at=now - timedelta(minutes=16))
         _ = store.update_crawl(
-            "run-1", checkpoint_page=7, pages_seen=7, detail_requests=3
+            "run-1",
+            checkpoint_page=7,
+            pages_seen=7,
+            detail_requests=3,
+            updated_at=now - timedelta(minutes=16),
         )
 
         recovered = store.recover_crawl_runs(now=now)

@@ -9,11 +9,28 @@ import yaml
 ROOT = Path(__file__).parents[2]
 _ACTION_NAME = r"[A-Za-z0-9_.-]+"
 _ACTION_PREFIX = f"^\\s+uses:\\s+(?P<action>{_ACTION_NAME}/{_ACTION_NAME})@"
-_ACTION_SUFFIX = r"(?P<sha>[0-9a-f]{40})\s+#\s+v\S+\s*$"
+_ACTION_SUFFIX = r"(?P<sha>[0-9a-f]{40})\s+#\s+(?P<tag>v\S+)\s*$"
 _PINNED_ACTION = re.compile(
     f"{_ACTION_PREFIX}{_ACTION_SUFFIX}",
     re.MULTILINE,
 )
+_EXPECTED_ACTION_REFERENCES = {
+    (
+        "actions/checkout",
+        "9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+        "v7.0.0",
+    ),
+    (
+        "actions/setup-python",
+        "ece7cb06caefa5fff74198d8649806c4678c61a1",
+        "v6.3.0",
+    ),
+    (
+        "astral-sh/setup-uv",
+        "fac544c07dec837d0ccb6301d7b5580bf5edae39",
+        "v8.2.0",
+    ),
+}
 
 
 class _YamlNode(Protocol):
@@ -83,6 +100,10 @@ def test_every_workflow_action_uses_a_commented_full_commit_sha() -> None:
 
     assert references
     assert all(match.group("sha") == match.group("sha").lower() for match in references)
+    assert {
+        (match.group("action"), match.group("sha"), match.group("tag"))
+        for match in references
+    } == _EXPECTED_ACTION_REFERENCES
     assert all(
         source_line.strip().startswith("uses:")
         for source in workflow_sources

@@ -1,12 +1,12 @@
-"""Protocol-level tests for the official MCP v2 stdio server."""
+"""Protocol-level tests for the official MCP SDK and STDIO server."""
 
 from datetime import date
 from pathlib import Path
 
 import anyio
 from mcp import ClientSession, StdioServerParameters
-from mcp.client._memory import InMemoryTransport
 from mcp.client.stdio import stdio_client
+from mcp.shared.memory import create_connected_server_and_client_session
 
 from kw_notice_mcp.domain import CategoryId, CategoryName, NoticeDetail, NoticeSummary
 from kw_notice_mcp.mcp_tools import NoticeToolService
@@ -24,8 +24,8 @@ def _database(tmp_path: Path) -> Path:
             title="Notice",
             category_id=CategoryId("general"),
             category_name=CategoryName("일반"),
-            posted_date=date(2026, 8, 1),
-            updated_date=date(2026, 8, 1),
+            posted_date=date(2026, 7, 1),
+            updated_date=date(2026, 7, 1),
             department="Department",
             source_url=SourceURL(
                 "https://www.kw.ac.kr/ko/life/notice.jsp?BoardMode=view&DUID=1001"
@@ -46,11 +46,7 @@ def test_all_four_tools_over_in_memory_sdk_transport(tmp_path: Path) -> None:
 
     async def scenario() -> None:
         server = create_server(database)
-        async with (
-            InMemoryTransport(server) as (read_stream, write_stream),
-            ClientSession(read_stream, write_stream) as session,
-        ):
-            _ = await session.initialize()
+        async with create_connected_server_and_client_session(server) as session:
             tools = await session.list_tools()
             names = [tool.name for tool in tools.tools]
             assert names == [
@@ -66,7 +62,7 @@ def test_all_four_tools_over_in_memory_sdk_transport(tmp_path: Path) -> None:
                 ("list_categories", {}),
             ):
                 result = await session.call_tool(name, arguments)
-                assert result.is_error is not True
+                assert result.isError is not True
                 assert result.content
 
     anyio.run(scenario)
@@ -95,7 +91,7 @@ def test_all_four_tools_over_stdio(tmp_path: Path) -> None:
                 ("list_categories", {}),
             ):
                 result = await session.call_tool(name, arguments)
-                assert result.is_error is not True
+                assert result.isError is not True
                 assert result.content
 
     anyio.run(scenario)
@@ -122,19 +118,15 @@ def test_malformed_tool_input_is_bounded_and_server_remains_usable(
 
     async def scenario() -> None:
         server = create_server(database)
-        async with (
-            InMemoryTransport(server) as (read_stream, write_stream),
-            ClientSession(read_stream, write_stream) as session,
-        ):
-            _ = await session.initialize()
+        async with create_connected_server_and_client_session(server) as session:
             malformed = await session.call_tool(
                 "search_notices", {"query": ["not", "text"]}
             )
-            assert malformed.is_error is True
+            assert malformed.isError is True
             assert "Traceback" not in str(malformed.content)
 
             healthy = await session.call_tool("list_categories", {})
-            assert healthy.is_error is not True
+            assert healthy.isError is not True
             assert healthy.content
 
     anyio.run(scenario)
