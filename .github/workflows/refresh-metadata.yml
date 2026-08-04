@@ -1,0 +1,212 @@
+name: Refresh metadata Release DB
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,22,37,52 0-8 * * 1-5'
+
+concurrency:
+  group: kw-notice-metadata-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Set up Python 3.13
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.13"
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          enable-cache: true
+      - name: Install locked environment
+        run: uv sync --locked --dev
+      - name: Restore previous sanitized Release generation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          db="$RUNNER_TEMP/kw-notice-mcp/notices.sqlite3"
+          restore_dir="$RUNNER_TEMP/kw-notice-mcp/restore"
+          assets_dir="$restore_dir/assets"
+          mkdir -p "$(dirname "$db")" "$assets_dir"
+          release_json="$RUNNER_TEMP/kw-notice-mcp/release.json"
+          release_error="$RUNNER_TEMP/kw-notice-mcp/release-view.err"
+          if gh release view data-latest --repo "$GITHUB_REPOSITORY" --json body,assets >"$release_json" 2>"$release_error"; then
+            protocol_count=$(jq '[.assets[]?.name | select(startswith("notices-"))] | length' "$release_json")
+            if [ "$protocol_count" -eq 0 ]; then
+              uv run kw-notice-mcp init-db --db-path "$db"
+            else
+              pointer_body="$restore_dir/release-pointer.json"
+              jq -r '.body // empty' "$release_json" >"$pointer_body"
+              if [ ! -s "$pointer_body" ]; then
+                echo "Release has protocol assets but no authoritative body pointer; retaining the prior Release."
+                exit 13
+              fi
+              validated_pointer="$restore_dir/validated-pointer.json"
+              uv run python -m kw_notice_mcp.release verify-pointer \
+                --pointer "$pointer_body" >"$validated_pointer"
+              manifest_asset=$(jq -r '.manifest_asset' "$validated_pointer")
+              manifest_count=$(jq --arg name "$manifest_asset" '[.assets[]?.name | select(. == $name)] | length' "$release_json")
+              if [ "$manifest_count" -ne 1 ]; then
+                echo "Immutable manifest asset is missing or duplicated; retaining the prior Release."
+                exit 13
+              fi
+              if ! gh release download data-latest --repo "$GITHUB_REPOSITORY" --pattern "$manifest_asset" --dir "$restore_dir"; then
+                echo "Immutable manifest download failed; retaining the prior Release."
+                exit 13
+              fi
+              validated_manifest="$restore_dir/validated-manifest.json"
+              uv run python -m kw_notice_mcp.release verify-manifest \
+                --manifest "$restore_dir/$manifest_asset" >"$validated_manifest"
+              database_asset=$(jq -r '.database_asset' "$validated_manifest")
+              checksum_asset=$(jq -r '.checksum_asset' "$validated_manifest")
+              database_count=$(jq --arg name "$database_asset" '[.assets[]?.name | select(. == $name)] | length' "$release_json")
+              checksum_count=$(jq --arg name "$checksum_asset" '[.assets[]?.name | select(. == $name)] | length' "$release_json")
+              if [ "$database_count" -ne 1 ] || [ "$checksum_count" -ne 1 ]; then
+                echo "Manifest generation pair is incomplete; retaining the prior Release."
+                exit 13
+              fi
+              if ! gh release download data-latest --repo "$GITHUB_REPOSITORY" --pattern "$database_asset" --dir "$assets_dir"; then
+                echo "Database download failed; retaining the prior Release."
+                exit 13
+              fi
+              if ! gh release download data-latest --repo "$GITHUB_REPOSITORY" --pattern "$checksum_asset" --dir "$assets_dir"; then
+                echo "Checksum download failed; retaining the prior Release."
+                exit 13
+              fi
+              uv run python -m kw_notice_mcp.release restore \
+                --manifest "$restore_dir/$manifest_asset" \
+                --assets-dir "$assets_dir" \
+                --database "$db"
+            fi
+          elif grep -Eqi 'not found|release .*does not exist' "$release_error"; then
+            uv run kw-notice-mcp init-db --db-path "$db"
+          else
+            cat "$release_error" >&2
+            exit 13
+          fi
+          test -s "$db"
+      - name: Run exactly one bounded metadata-only crawl
+        id: crawl
+        run: |
+          set +e
+          uv run kw-notice-mcp crawl --metadata-only --db-path "$RUNNER_TEMP/kw-notice-mcp/notices.sqlite3"
+          exit_code=$?
+          set -e
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          if [ "$exit_code" -ne 0 ]; then
+            echo "crawl did not succeed; retaining the previous Release and publishing nothing"
+          fi
+      - name: Prepare immutable Release inputs
+        id: snapshot
+        if: steps.crawl.outputs.exit_code == '0'
+        run: |
+          set -euo pipefail
+          manifest=$(uv run python -m kw_notice_mcp.release prepare \
+            --database "$RUNNER_TEMP/kw-notice-mcp/notices.sqlite3" \
+            --output-dir "$RUNNER_TEMP/kw-notice-mcp/release-inputs")
+          test -s "$manifest"
+          echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+      - name: Upload and verify immutable generation, then edit Release body pointer
+        if: steps.crawl.outputs.exit_code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          manifest="${{ steps.snapshot.outputs.manifest }}"
+          generation_dir=$(dirname "$manifest")
+          canonical_manifest="$RUNNER_TEMP/kw-notice-mcp/publish-manifest.json"
+          uv run python -m kw_notice_mcp.release verify-manifest \
+            --manifest "$manifest" >"$canonical_manifest"
+          sha256=$(jq -r '.sha256' "$canonical_manifest")
+          database_asset=$(jq -r '.database_asset' "$canonical_manifest")
+          checksum_asset=$(jq -r '.checksum_asset' "$canonical_manifest")
+          manifest_asset="notices-manifest-$sha256.json"
+          database_path="$generation_dir/$database_asset"
+          checksum_path="$generation_dir/$checksum_asset"
+          test -s "$database_path"
+          test -s "$checksum_path"
+
+          create_error="$RUNNER_TEMP/kw-notice-mcp/release-create.err"
+          prior_pointer="$RUNNER_TEMP/kw-notice-mcp/prior-pointer.json"
+          : >"$prior_pointer"
+          if gh release view data-latest --repo "$GITHUB_REPOSITORY" --json body,assets >"$RUNNER_TEMP/kw-notice-mcp/publish-release.json" 2>"$create_error"; then
+            jq -r '.body // empty' "$RUNNER_TEMP/kw-notice-mcp/publish-release.json" >"$prior_pointer"
+          elif grep -Eqi 'not found|release .*does not exist' "$create_error"; then
+            gh release create data-latest --repo "$GITHUB_REPOSITORY" \
+              --title "Latest sanitized notice metadata" \
+              --notes ""
+            : >"$prior_pointer"
+          else
+            cat "$create_error" >&2
+            exit 13
+          fi
+
+          remote_assets="$RUNNER_TEMP/kw-notice-mcp/publish-assets.json"
+          gh release view data-latest --repo "$GITHUB_REPOSITORY" --json body,assets >"$remote_assets"
+          verify_dir="$RUNNER_TEMP/kw-notice-mcp/verify-published"
+          mkdir -p "$verify_dir"
+          ensure_generation_asset() {
+            local local_path="$1"
+            local asset_name="$2"
+            if jq -e --arg name "$asset_name" 'any(.assets[]?; .name == $name)' "$remote_assets" >/dev/null; then
+              gh release download data-latest --repo "$GITHUB_REPOSITORY" --pattern "$asset_name" --dir "$verify_dir"
+              cmp -s "$local_path" "$verify_dir/$asset_name"
+            else
+              gh release upload data-latest "$local_path#$asset_name" --repo "$GITHUB_REPOSITORY"
+            fi
+          }
+          ensure_generation_asset "$database_path" "$database_asset"
+          ensure_generation_asset "$checksum_path" "$checksum_asset"
+          ensure_generation_asset "$manifest" "$manifest_asset"
+          gh release view data-latest --repo "$GITHUB_REPOSITORY" --json body,assets >"$remote_assets"
+          for asset_name in "$database_asset" "$checksum_asset" "$manifest_asset"; do
+            jq -e --arg name "$asset_name" 'any(.assets[]?; .name == $name)' "$remote_assets" >/dev/null
+            gh release download data-latest --repo "$GITHUB_REPOSITORY" --pattern "$asset_name" --dir "$verify_dir"
+          done
+          cmp -s "$database_path" "$verify_dir/$database_asset"
+          cmp -s "$checksum_path" "$verify_dir/$checksum_asset"
+          cmp -s "$manifest" "$verify_dir/$manifest_asset"
+
+          pointer="$RUNNER_TEMP/kw-notice-mcp/release-pointer.json"
+          jq -n --arg asset "$manifest_asset" '{version: 1, manifest_asset: $asset}' >"$pointer"
+          canonical_pointer="$RUNNER_TEMP/kw-notice-mcp/canonical-pointer.json"
+          uv run python -m kw_notice_mcp.release verify-pointer \
+            --pointer "$pointer" >"$canonical_pointer"
+          if ! gh release edit data-latest --repo "$GITHUB_REPOSITORY" --notes-file "$canonical_pointer"; then
+            readback="$RUNNER_TEMP/kw-notice-mcp/readback-pointer.json"
+            if gh release view data-latest --repo "$GITHUB_REPOSITORY" --json body >"$readback"; then
+              jq -r '.body // empty' "$readback" >"$readback.body"
+              if cmp -s "$readback.body" "$canonical_pointer"; then
+                echo "Release body edit was ambiguous but read-back confirms the new pointer."
+                exit 0
+              fi
+              if cmp -s "$readback.body" "$prior_pointer"; then
+                echo "Release body edit failed; prior pointer remains authoritative."
+              elif [ ! -s "$readback.body" ] && [ ! -s "$prior_pointer" ]; then
+                echo "Initial Release body edit failed; no authoritative generation exists."
+              else
+                echo "Release body state is ambiguous; retaining the prior authoritative pointer."
+              fi
+            else
+              echo "Release body read-back failed; retaining the prior authoritative pointer."
+            fi
+            exit 13
+          fi
+          readback="$RUNNER_TEMP/kw-notice-mcp/readback-pointer.json"
+          gh release view data-latest --repo "$GITHUB_REPOSITORY" --json body >"$readback"
+          jq -r '.body // empty' "$readback" >"$readback.body"
+          cmp -s "$readback.body" "$canonical_pointer"
+          uv run python -m kw_notice_mcp.release verify-pointer \
+            --pointer "$readback.body" >/dev/null
